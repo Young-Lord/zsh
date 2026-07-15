@@ -8137,9 +8137,21 @@ __git_tree_files () {
 
 (( $+functions[__git_remote_repositories] )) ||
 __git_remote_repositories () {
+  # scp-style is [user@]host:path; URIs use scheme://...
+  # Matching any "*:" would treat https://... as host "https" and
+  # _remote_files would make an unnecessary ssh/DNS lookup (and can hang if
+  # name resolution misbehaves). For known URI schemes:
+  #   https / https: / https:/ / https://...  -> not scp (return)
+  #   https:path / https:/abs/path           -> still scp-style
   if compset -P '*:'; then
+    if [[ ${IPREFIX%:} == (#i)(http|https|ftp|ftps|git|ssh|file) &&
+          ( -z $PREFIX || $PREFIX == / || $PREFIX == //* ) ]]; then
+      return 1
+    fi
     _remote_files -/ -- ssh
   else
+    # Completing the host part: do not offer a bare URI scheme as an scp host.
+    [[ $PREFIX == (#i)(http|https|ftp|ftps|git|ssh|file) ]] && return 1
     _ssh_hosts -S:
   fi
 }
